@@ -1,0 +1,27 @@
+{
+  "name": "kefvoiced",
+  "version": "1.0.0",
+  "description": "A TTS Bot",
+  "main": "index.js",
+  "dependencies": {
+    "@discordjs/builders": "^0.15.0",
+    "@discordjs/rest": "^0.5.0",
+    "@discordjs/voice": "^0.10.0",
+    "aws-sdk": "^2.1172.0",
+    "discord-api-types": "^0.26.1",
+    "discord.js": "^13.8.1",
+    "dotenv": "^16.0.1",
+    "ffmpeg-static": "^5.0.2",
+    "libsodium-wrappers": "^0.7.10",
+    "node": "^17.4.0",
+    "nodemon": "^2.0.19",
+    "path": "^0.12.7",
+    "uuid": "^8.3.2"
+  },
+  "scripts": {
+    "test": "mocha",
+    "start": "node index.js"
+  },
+  "author": "Kayla Gray",
+  "license": "ISC"
+}
