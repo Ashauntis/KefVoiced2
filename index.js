@@ -60,7 +60,7 @@ client.once("ready", () => {
 });
 // console.log(process.env.token);
 client.login(process.env.token);
-setInterval(utility.playQueue, 1);
+setInterval(utility.playQueue, 1000);
 
 // listen for slash commands from the discord client
 
@@ -85,7 +85,6 @@ client.on("interactionCreate", async (interaction) => {
   // function key for each slash command
   slashCommands = {
     join: () => {
-      console.log(`idx is ${idx}`);
       if (idx != null) {
         activeConnections[idx].connection.destroy();
         activeConnections.splice(idx, 1);
@@ -201,6 +200,21 @@ client.on("interactionCreate", async (interaction) => {
         }
       })
     },
+
+    skip: () => {
+      try {
+        activeConnections[idx].playing = false;
+        if (activeConnections[idx].queue.length != 0) {
+          if (activeConnections[idx].queue[0].soundboard === false) {
+            fs.unlinkSync(activeConnections[idx].queue[0].path);
+            activeConnections[idx].queue.shift();
+          }
+        }
+
+      } catch (err) {
+        console.log(err);
+      }
+    }
 
   };
 

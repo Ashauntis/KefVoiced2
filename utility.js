@@ -42,8 +42,6 @@ class VoiceConnection {
         console.log(err);
       }
     })
-
-
   }
 }
 
@@ -91,19 +89,16 @@ async function load_document(id) {
     },
   };
 
-  console.log('Loading document with id: ' + id);
   // get the document from Amazon DynamoDB
   await dynamo.getItem(params, function(err, data) {
       if (err) {
         console.log(err, err.stack);
       } else if (Object.keys(data).length == 0) {
-        console.log('No document found with id: ' + id);
       } else {
         // console.dir(data);
         result_data = JSON.parse(data.Item.value.S);
       }
-    })
-    .promise();
+    });
 
   if (result_data == null) {
     console.log(`Document not found: ${id}`);
@@ -136,8 +131,7 @@ async function save_document(data_object, id) {
         console.log(`Document added. ID: ${id}, Data:`);
         console.dir(data_object);
       }
-    })
-    .promise();
+    });
 
   return r;
 }
@@ -190,25 +184,24 @@ async function reconnectVoice() {
 }
 
 function playQueue() {
-  // iterate through each active connection
-  for (i=0; i < activeConnections.length; i++) {
-    if (activeConnections[i].queue.length != 0 && activeConnections[i].playing != true) {
+
+  activeConnections.forEach((connection) => {
+    if (connection.queue.length != 0 && !connection.playing) {
       // if the player is not playing, play the next audiofile
       try {
         // check if audio file exists
-        activeConnections[i].player.unpause();
-        if (fs.existsSync(activeConnections[i].queue[0].path)) {
-          activeConnections[i].playing = true;
-          activeConnections[i].connection = getVoiceConnection(activeConnections[i].queue[0].id);
+        if (fs.existsSync(connection.queue[0].path)) {
+          connection.playing = true;
+          connection.connection = getVoiceConnection(connection.queue[0].id);
           const audioClip = createAudioResource(
             fs.createReadStream(
-              join(__dirname, activeConnections[i].queue[0].path),
+              join(__dirname, connection.queue[0].path),
               {
                 inputType: StreamType.OggOpus,
               }
             )
           );
-          activeConnections[i].player.play(audioClip);
+          connection.player.play(audioClip);
         } else {
           throw new Error('File does not exist!');
         }
@@ -216,38 +209,11 @@ function playQueue() {
         console.log('Error playing file');
         console.error(e);
       }
+    } else {
+      console.log('queue is empty or currently playing');
+      console.log(connection.player._state.status);
     }
-  }
-
-  // activeConnections.forEach((connection) => {
-  //   if (connection.queue.length != 0 && connection.player._state.status != 'playing') {
-  //     // if the player is not playing, play the next audiofile
-  //     try {
-  //       // check if audio file exists
-  //       if (fs.existsSync(connection.queue[0].path)) {
-  //         console.log('File exists, attempting to play');
-  //         connection.connection = getVoiceConnection(connection.queue[0].id);
-  //         const audioClip = createAudioResource(
-  //           fs.createReadStream(
-  //             join(__dirname, connection.queue[0].path),
-  //             {
-  //               inputType: StreamType.OggOpus,
-  //             }
-  //           )
-  //         );
-  //         connection.player.play(audioClip);
-  //       } else {
-  //         throw new Error('File does not exist!');
-  //       }
-  //     } catch (e) {
-  //       console.log('Error playing file');
-  //       console.error(e);
-  //     }
-  //   } else {
-  //     console.log('queue is empty or currently playing');
-  //     console.log(connection.player._state.status);
-  //   }
-  // });
+  });
 }
 
 
