@@ -1,3 +1,6 @@
+const soundboard = require('./soundboard.js');
+const sbKey = soundboard.soundboardOptions;
+
 const {
   AudioPlayer,
   AudioPlayerStatus,
@@ -210,11 +213,28 @@ function playQueue() {
         console.error(e);
       }
     } else {
-      console.log('queue is empty or currently playing');
-      console.log('player state = ' + connection.player._state.status + ', connection.playing=' + connection.playing);
+      // console.log('queue is empty or currently playing');
+      // console.log('player state = ' + connection.player._state.status + ', connection.playing=' + connection.playing);
 
     }
   });
+}
+
+function queueSoundboard(reaction, interaction, idx) {
+  const pathguide = sbKey[reaction.emoji.name];
+
+  if (!pathguide) {
+    interaction.user.send({
+      content: `${reaction.emoji.name} isn't a currently supported sound key.`,
+    });
+  } else {
+    activeConnections[idx].queue.push({
+      id: interaction.guildId,
+      path: "audio/soundboard/" + pathguide + ".mp3",
+      message: pathguide,
+      soundboard: true,
+    });
+  }
 }
 
 
@@ -227,6 +247,7 @@ module.exports = {
     save_document,
     load_document,
     playQueue,
+    queueSoundboard,
     activeConnections,
     reconnectionList,
     polly,

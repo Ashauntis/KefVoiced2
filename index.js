@@ -27,6 +27,7 @@ const {
 
 // Load any additional JS files
 const utility = require("./utility.js");
+const soundboard = require("./soundboard.js");
 
 // Extend string class to include a capitalize method
 String.prototype.capitalize = function () {
@@ -54,13 +55,14 @@ const activeConnections = utility.activeConnections;
 const reconnectionList = utility.reconnectionList;
 const polly = utility.polly;
 let cachedUserMap = new Map();
+const sbKey = soundboard.soundboardOptions;
 
 client.once("ready", () => {
   console.log("Ready!");
 });
 // console.log(process.env.token);
 client.login(process.env.token);
-setInterval(utility.playQueue, 1000);
+setInterval(utility.playQueue, 100);
 
 // listen for slash commands from the discord client
 
@@ -214,9 +216,7 @@ client.on("interactionCreate", async (interaction) => {
           }
         }
 
-        // if the queue is now empty then add a moment of silence to the queue
-        // to halt the prior broadcast. if the queue is NOT empty then they
-        // will naturally disrupt playback of the audio file being played.
+        // if the queue is now empty then add a moment of silence to the queue to halt the prior broadcast. if the queue is NOT empty then they will naturally disrupt playback of the audio file being played.
 
         if (activeConnections[idx].queue.length === 0) {
           activeConnections[idx].queue.push({
@@ -227,15 +227,100 @@ client.on("interactionCreate", async (interaction) => {
           });
         }
 
+        interaction.reply({
+          content: `Skipping the current audio clip`,
+          ephemeral: true
+        })
+
       } catch (err) {
         console.log(err);
       }
-    }
+    },
+
+    soundboard: async () => {
+      if (idx === null) {
+        interaction.reply({
+          content: "Connect the bot to voice and try again!",
+          ephemeral: true,
+        });
+        return;
+      }
+
+      if (!interaction.member?.voice.channel) {
+        interaction.reply({
+          content: 'Join voice and try again!',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      // filter so bot reactions aren't collected
+      let filter = (reaction, user) => {
+        return user.id != "941537585170382928" && user.id != "941542196337844245" && user.id != "996208482455928913";
+      };
+
+      // define data tracking
+      let sbReactCounter = 0;
+
+      let sbMessages = [];
+      let collectorReactions = [];
+
+      // define soundboard embedded message
+      const sb = new MessageEmbed()
+        .setTitle("Kef Voiced Soundboard")
+        .setDescription(
+          "The following emoji's will play a soundboard in the channel you performed the /soundboard command",
+        )
+        .addFields({
+          name: "Click here for the soundboard key",
+          value:
+            "[Click me!](https://docs.google.com/spreadsheets/d/1eYwxOGZScgQpLbsAtN5fP0WfLq9VT6jnxzj6-p5QPqE/edit#gid=0)",
+          inline: true,
+        });
+
+      interaction.reply({
+        content: "Sending you the soundboard via Direct Message",
+        ephemeral: true,
+      });
+
+      await interaction.user.send({ embeds: [sb] });
+
+      for (let key in sbKey) {
+        if (sbReactCounter == 0) {
+          sbMessages.push(
+            await interaction.user.send({ content: "-", fetchReply: true })
+          );
+          collectorReactions.push(
+            sbMessages[sbMessages.length - 1].createReactionCollector({
+              filter,
+              time: 86_400_000,
+            })
+          );
+          collectorReactions[collectorReactions.length - 1].on(
+            "collect",
+            (reaction, user) => {
+              utility.queueSoundboard(reaction, interaction, idx);
+              ({
+                content: `${interaction.member.nickname} played a sound: ${reaction}`,
+              });
+            }
+          );
+        }
+
+        await sbMessages[sbMessages.length - 1].react(key);
+
+        sbReactCounter++;
+
+        if (sbReactCounter == 19) {
+          sbReactCounter = 0;
+        }
+      }
+    },
 
   };
 
   // search the function key for the appropriate command and execute it
-  const runInteraction = (interaction) => {
+  const runInteraction = async (interaction) => {
     utility.switchFn(slashCommands, interaction.commandName)();
   };
 
@@ -243,9 +328,15 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 client.on("messageCreate", async (message) => {
-  // useful data
+  // Check to see if a message was ephemeral - skip if true
+  if (message.flags.has("EPHEMERAL")) {
+    return;
+  }
 
-  let userId = message.member.id;
+  // useful data
+  console.log(message);
+  let userId = message.member ? message.member.id : null;
+  if (!userId) return;
   let voice = "Joey"; //default value to be replaced by cached data if available
 
   // determine if/where a matching active connection is stored
@@ -260,11 +351,6 @@ client.on("messageCreate", async (message) => {
 
   // bot is either not in voice or ttsChannel doesn't match message channel
   if (idx === null || activeConnections[idx].ttsChannel != message.channelId) {
-    return;
-  }
-
-  // Check to see if a message was ephemeral - skip if true
-  if (message.flags.has("EPHEMERAL")) {
     return;
   }
 
@@ -303,6 +389,8 @@ client.on("messageCreate", async (message) => {
     message.content = message.content.replaceAll(needle, replace);
     message.content = message.content.replaceAll(needle_alt, replace);
   });
+
+  //TODO filter channel names to read the actual channel name rather than ID
 
   // filter custom emojis to emoji name
   if (message.content.match(/<:[A-Za-z0-9_]{1,64}:\d{1,64}>/g)) {
