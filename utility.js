@@ -34,8 +34,8 @@ class VoiceConnection {
         if (this.queue.length != 0) {
           if (this.queue[0].soundboard === false) {
             fs.unlinkSync(this.queue[0].path);
-            this.queue.shift();
           }
+          this.queue.shift();
         }
 
       } catch (err) {
@@ -211,7 +211,8 @@ function playQueue() {
       }
     } else {
       console.log('queue is empty or currently playing');
-      console.log(connection.player._state.status);
+      console.log('player state = ' + connection.player._state.status + ', connection.playing=' + connection.playing);
+
     }
   });
 }

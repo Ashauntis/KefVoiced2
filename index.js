@@ -204,11 +204,27 @@ client.on("interactionCreate", async (interaction) => {
     skip: () => {
       try {
         activeConnections[idx].playing = false;
+
+        // remove the current audio file from the queue
+
         if (activeConnections[idx].queue.length != 0) {
           if (activeConnections[idx].queue[0].soundboard === false) {
             fs.unlinkSync(activeConnections[idx].queue[0].path);
             activeConnections[idx].queue.shift();
           }
+        }
+
+        // if the queue is now empty then add a moment of silence to the queue
+        // to halt the prior broadcast. if the queue is NOT empty then they
+        // will naturally disrupt playback of the audio file being played.
+
+        if (activeConnections[idx].queue.length === 0) {
+          activeConnections[idx].queue.push({
+            id: guildId,
+            path: 'audio/silence.ogg',
+            message: null,
+            soundboard: true,
+          });
         }
 
       } catch (err) {
