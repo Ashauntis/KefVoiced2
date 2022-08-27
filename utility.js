@@ -20,7 +20,7 @@ const { join } = require("path");
 // data tracking
 let activeConnections = [];
 let reconnectionList = [];
-
+let connectionMap = new Map();
 // Define our connection class
 
 class VoiceConnection {
@@ -249,6 +249,7 @@ module.exports = {
     playQueue,
     queueSoundboard,
     activeConnections,
+    connectionMap,
     reconnectionList,
     polly,
 };

@@ -53,6 +53,7 @@ const client = new Client({
 
 const activeConnections = utility.activeConnections;
 const reconnectionList = utility.reconnectionList;
+const connectionMap = utility.connectionMap;
 const polly = utility.polly;
 let cachedUserMap = new Map();
 const sbKey = soundboard.soundboardOptions;
@@ -70,6 +71,8 @@ client.on("interactionCreate", async (interaction) => {
   // useful data renames
   const userId = interaction.member.id;
   const guildId = interaction.member.guild.id;
+
+  let activeConnection = connectionMap.get(interaction.guildId);
 
   // determine if/where a matching active connection is stored
   let idx = null;
