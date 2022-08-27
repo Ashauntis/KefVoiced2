@@ -18,7 +18,6 @@ const fs = require('fs');
 const { join } = require("path");
 
 // data tracking
-let activeConnections = [];
 let reconnectionList = [];
 let connectionMap = new Map();
 // Define our connection class
@@ -86,25 +85,28 @@ async function load_document(id) {
 
   // specify the parameters for the getItem call
   const params = {
-    TableName: 'kef_voiced_settings',
+    TableName: "kef_voiced_settings",
     Key: {
       id: { S: id },
     },
   };
 
+  console.log("Loading document with id: " + id);
   // get the document from Amazon DynamoDB
   await dynamo.getItem(params, function(err, data) {
       if (err) {
         console.log(err, err.stack);
       } else if (Object.keys(data).length == 0) {
+        // console.log("No document found with id: " + id);
       } else {
         // console.dir(data);
         result_data = JSON.parse(data.Item.value.S);
       }
-    });
+    })
+    .promise();
 
   if (result_data == null) {
-    console.log(`Document not found: ${id}`);
+    // console.log(`Document not found: ${id}`);
   } else {
     console.log(`Successfully loaded document: ${id} `);
   }
@@ -118,7 +120,7 @@ async function save_document(data_object, id) {
 
   // specify the parameters for the putItem call
   const params = {
-    TableName: 'kef_voiced_settings',
+    TableName: "kef_voiced_settings",
     Item: {
       id: { S: id },
       value: { S: value },
@@ -129,12 +131,13 @@ async function save_document(data_object, id) {
   const r = await dynamo
     .putItem(params, function(err) {
       if (err) {
-        console.log('Error', err, err.stack);
+        console.log("Error", err, err.stack);
       } else {
         console.log(`Document added. ID: ${id}, Data:`);
         console.dir(data_object);
       }
-    });
+    })
+    .promise();
 
   return r;
 }
@@ -146,27 +149,30 @@ const switchFn =
 
 async function joinVoice(connection, channel, ttsChannel ) {
 
-  activeConnections.push(new VoiceConnection());
-  const i = activeConnections.length - 1;
+  const newConnection = new VoiceConnection();
+  // activeConnections.push(new VoiceConnection());
+  // const i = activeConnections.length - 1;
 
-  activeConnections[i].connection = await joinVoiceChannel({
+  newConnection.connection = await joinVoiceChannel({
     channelId: connection.id,
     guildId: connection.guild.id,
     adapterCreator: channel.guild.voiceAdapterCreator,
   });
 
-  activeConnections[i].connection.subscribe(activeConnections[i].player);
+  newConnection.connection.subscribe(newConnection.player);
 
-  activeConnections[i].channelId = connection.id;
-  activeConnections[i].guildId = connection.guild.id;
-  activeConnections[i].soundboard = [];
-  activeConnections[i].ttsChannel = ttsChannel;
+  newConnection.channelId = connection.id;
+  newConnection.guildId = connection.guild.id;
+  newConnection.soundboard = [];
+  newConnection.ttsChannel = ttsChannel;
+
+  connectionMap.set(connection.guild.id, newConnection);
 
 };
 
-async function reconnectVoice() {
+async function reconnectVoice(client) {
   try {
-    reconnectionList = await utility.load_document('reconnection');
+    reconnectionList = await load_document('reconnection');
 
     // Guarantee reconnectionList is an array, otherwise revert it to an empty array
     if (!Array.isArray(reconnectionList)) {
@@ -188,7 +194,7 @@ async function reconnectVoice() {
 
 function playQueue() {
 
-  activeConnections.forEach((connection) => {
+  connectionMap.forEach((connection) => {
     if (connection.queue.length != 0 && !connection.playing) {
       // if the player is not playing, play the next audiofile
       try {
@@ -220,20 +226,22 @@ function playQueue() {
   });
 }
 
-function queueSoundboard(reaction, interaction, idx) {
+function queueSoundboard(reaction, interaction, guildId) {
   const pathguide = sbKey[reaction.emoji.name];
+  const activeConnection = connectionMap.get(guildId);
 
   if (!pathguide) {
     interaction.user.send({
       content: `${reaction.emoji.name} isn't a currently supported sound key.`,
     });
   } else {
-    activeConnections[idx].queue.push({
+    activeConnection.queue.push({
       id: interaction.guildId,
       path: "audio/soundboard/" + pathguide + ".mp3",
       message: pathguide,
       soundboard: true,
     });
+    connectionMap.set(guildId, activeConnection);
   }
 }
 
@@ -248,7 +256,6 @@ module.exports = {
     load_document,
     playQueue,
     queueSoundboard,
-    activeConnections,
     connectionMap,
     reconnectionList,
     polly,

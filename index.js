@@ -26,7 +26,20 @@ const {
 } = require("@discordjs/builders");
 
 // Load any additional JS files
-const utility = require("./utility.js");
+const {
+  reconnectionList,
+  connectionMap,
+  polly,
+  reconnectVoice,
+  playQueue,
+  joinVoice,
+  save_document,
+  load_document,
+  makeDefaultSettings,
+  queueSoundboard,
+  switchFn,
+
+} = require("./utility.js");
 const soundboard = require("./soundboard.js");
 
 // Extend string class to include a capitalize method
@@ -51,19 +64,22 @@ const client = new Client({
 
 // data tracking
 
-const activeConnections = utility.activeConnections;
-const reconnectionList = utility.reconnectionList;
-const connectionMap = utility.connectionMap;
-const polly = utility.polly;
 let cachedUserMap = new Map();
 const sbKey = soundboard.soundboardOptions;
 
+
 client.once("ready", () => {
-  console.log("Ready!");
+
+  // once the client has connected reconnect to the voice channels
+  // via our utility function reconnectVoice
+  console.log('Reconnecting to voice channels');
+  reconnectVoice(client);
 });
+
+
 // console.log(process.env.token);
 client.login(process.env.token);
-setInterval(utility.playQueue, 100);
+setInterval(playQueue, 100);
 
 // listen for slash commands from the discord client
 
@@ -72,27 +88,15 @@ client.on("interactionCreate", async (interaction) => {
   const userId = interaction.member.id;
   const guildId = interaction.member.guild.id;
 
-  let activeConnection = connectionMap.get(interaction.guildId);
-
   // determine if/where a matching active connection is stored
-  let idx = null;
-
-  for (let i = 0; i < activeConnections.length; i++) {
-    if (activeConnections[i].guildId === interaction.guildId) {
-      idx = i;
-      console.log(
-        `Matching active connection found for interaction (${interaction.commandName}) on server ${interaction.guildId}.`
-      );
-      break;
-    }
-  }
+  let activeConnection = connectionMap.get(interaction.guildId);
 
   // function key for each slash command
   slashCommands = {
     join: () => {
-      if (idx != null) {
-        activeConnections[idx].connection.destroy();
-        activeConnections.splice(idx, 1);
+      if (activeConnection) {
+        activeConnection.connection.destroy();
+        connectionMap.delete(interaction.guildId);
 
         for (let i = 0; i < reconnectionList.length; i++) {
           if (reconnectionList[i].guild.id === interaction.member.guild.id) {
@@ -103,7 +107,7 @@ client.on("interactionCreate", async (interaction) => {
       }
 
       const voiceChannel = interaction.member?.voice.channel;
-      utility.joinVoice(voiceChannel, voiceChannel, interaction.channelId);
+      joinVoice(voiceChannel, voiceChannel, interaction.channelId);
 
       reconnectionList.push({
         id: voiceChannel.id,
@@ -113,7 +117,7 @@ client.on("interactionCreate", async (interaction) => {
         ttsChannel: interaction.channelId,
       });
 
-      utility.save_document(reconnectionList, "reconnection");
+      save_document(reconnectionList, "reconnection");
 
       interaction.reply({
         content: "Kef Voiced has joined the channel",
@@ -122,22 +126,23 @@ client.on("interactionCreate", async (interaction) => {
     },
 
     leave: () => {
-      if (idx != null) {
+      if (activeConnection) {
         interaction.reply({
           content: "Goodbye!",
           ephemeral: false,
         });
 
-        activeConnections[idx].connection.destroy();
-        activeConnections.splice(idx, 1);
+        activeConnection.connection.destroy();
+        connectionMap.delete(interaction.guildId);
 
         for (let i = 0; i < reconnectionList.length; i++) {
           if (reconnectionList[i].guild.id === interaction.member.guild.id) {
             reconnectionList.splice(i, 1);
-            utility.save_document(reconnectionList, "reconnection");
+            save_document(reconnectionList, "reconnection");
             break;
           }
         }
+
       } else {
         interaction.reply({
           content: "Not currently connected to voice",
@@ -181,17 +186,17 @@ client.on("interactionCreate", async (interaction) => {
 
           if (validChoice) {
             let cached = false;
-            let query = await utility.load_document(userId);
+            let query = await load_document(userId);
 
             if (query) {
               query.global.voice = choice;
               cachedUserMap.set(userId, query);
-              utility.save_document(query, userId);
+              save_document(query, userId);
             } else {
-              let newSetting = utility.makeDefaultSettings(userId);
+              let newSetting = makeDefaultSettings(userId);
               newSetting.global.voice = choice;
               cachedUserMap.set(userId, newSetting);
-              utility.save_document(newSetting, userId);
+              save_document(newSetting, userId);
             }
             interaction.reply({
               content: `Setting your voice to ${choice}`,
@@ -208,21 +213,21 @@ client.on("interactionCreate", async (interaction) => {
 
     skip: () => {
       try {
-        activeConnections[idx].playing = false;
+        activeConnection.playing = false;
 
         // remove the current audio file from the queue
 
-        if (activeConnections[idx].queue.length != 0) {
-          if (activeConnections[idx].queue[0].soundboard === false) {
-            fs.unlinkSync(activeConnections[idx].queue[0].path);
-            activeConnections[idx].queue.shift();
+        if (activeConnection.queue.length != 0) {
+          if (activeConnection.queue[0].soundboard === false) {
+            fs.unlinkSync(activeConnection.queue[0].path);
+            activeConnection.queue.shift();
           }
         }
 
         // if the queue is now empty then add a moment of silence to the queue to halt the prior broadcast. if the queue is NOT empty then they will naturally disrupt playback of the audio file being played.
 
-        if (activeConnections[idx].queue.length === 0) {
-          activeConnections[idx].queue.push({
+        if (activeConnection.queue.length === 0) {
+          activeConnection.queue.push({
             id: guildId,
             path: 'audio/silence.ogg',
             message: null,
@@ -241,7 +246,7 @@ client.on("interactionCreate", async (interaction) => {
     },
 
     soundboard: async () => {
-      if (idx === null) {
+      if (!activeConnection) {
         interaction.reply({
           content: "Connect the bot to voice and try again!",
           ephemeral: true,
@@ -302,7 +307,7 @@ client.on("interactionCreate", async (interaction) => {
           collectorReactions[collectorReactions.length - 1].on(
             "collect",
             (reaction, user) => {
-              utility.queueSoundboard(reaction, interaction, idx);
+              queueSoundboard(reaction, interaction, guildId);
               ({
                 content: `${interaction.member.nickname} played a sound: ${reaction}`,
               });
@@ -324,7 +329,7 @@ client.on("interactionCreate", async (interaction) => {
 
   // search the function key for the appropriate command and execute it
   const runInteraction = async (interaction) => {
-    utility.switchFn(slashCommands, interaction.commandName)();
+    switchFn(slashCommands, interaction.commandName)();
   };
 
   runInteraction(interaction);
@@ -337,23 +342,15 @@ client.on("messageCreate", async (message) => {
   }
 
   // useful data
-  console.log(message);
   let userId = message.member ? message.member.id : null;
   if (!userId) return;
   let voice = "Joey"; //default value to be replaced by cached data if available
 
-  // determine if/where a matching active connection is stored
-  let idx = null;
-
-  for (let i = 0; i < activeConnections.length; i++) {
-    if (activeConnections[i].guildId === message.channel.guild.id) {
-      idx = i;
-      break;
-    }
-  }
+  //determine if there is an active connection
+  const activeConnection = connectionMap.get(message.channel.guild.id);
 
   // bot is either not in voice or ttsChannel doesn't match message channel
-  if (idx === null || activeConnections[idx].ttsChannel != message.channelId) {
+  if (!activeConnection || activeConnection.ttsChannel !== message.channelId) {
     return;
   }
 
@@ -361,11 +358,13 @@ client.on("messageCreate", async (message) => {
   if (cachedUserMap.has(userId)) {
     voice = cachedUserMap.get(userId).global.voice;
   } else {
-    const query = await utility.load_document(userId);
+    const query = await load_document(userId);
     if (query) {
       cachedUserMap.set(userId, query);
       voice = cachedUserMap.get(userId).global.voice;
-    } else cachedUserMap.set(userId, utility.makeDefaultSettings(userId));
+    } else {
+      cachedUserMap.set(userId, makeDefaultSettings(userId));
+    }
   }
 
   // filter and modify message before it's sent to Polly //
@@ -374,9 +373,9 @@ client.on("messageCreate", async (message) => {
   let author = message.member.nickname ? message.member.nickname : message.author.username;
 
   // if last speaker matches current speaker, no need to inform who's speaking again
-  if (activeConnections[idx].lastSpeaker !== author) {
+  if (activeConnection.lastSpeaker !== author) {
     message.content = author + " said " + message.content;
-    activeConnections[idx].lastSpeaker = author;
+    activeConnection.lastSpeaker = author;
   }
 
   // filter message for links // TODO regex the link so any additional text is still read by polly
@@ -451,7 +450,7 @@ client.on("messageCreate", async (message) => {
           console.log(err);
           return;
         } else {
-          activeConnections[idx].queue.push({
+          activeConnection.queue.push({
             id: message.guildId,
             path: fileLoc,
             message: message.content,
@@ -461,4 +460,6 @@ client.on("messageCreate", async (message) => {
       });
     }
   });
+
+  connectionMap.set(message.channel.guild.id, activeConnection);
 });
