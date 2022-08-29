@@ -75,6 +75,7 @@ function makeDefaultSettings(userID) {
   return {
       global: {
         voice: "Joey",
+        privateChannel: null,
       }
   };
 }

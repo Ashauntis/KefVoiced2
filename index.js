@@ -185,7 +185,6 @@ client.on("interactionCreate", async (interaction) => {
           if (choice === 'Kevin') validChoice = false;
 
           if (validChoice) {
-            let cached = false;
             let query = await load_document(userId);
 
             if (query) {
@@ -277,7 +276,7 @@ client.on("interactionCreate", async (interaction) => {
       const sb = new MessageEmbed()
         .setTitle("Kef Voiced Soundboard")
         .setDescription(
-          "The following emoji's will play a soundboard in the channel you performed the /soundboard command",
+          "The following emoji's will play the associated audio clip in the channel you performed the /soundboard command",
         )
         .addFields({
           name: "Click here for the soundboard key",
@@ -325,6 +324,34 @@ client.on("interactionCreate", async (interaction) => {
       }
     },
 
+    private: async() => {
+      let cached = false;
+      // query the database to get their full setting structure
+      if (cachedUserMap.has(userId)) {
+        cached = true;
+        let setting = cachedUserMap.get(userId);
+        setting.global.privateServer = guildId;
+        await save_document(setting, userId);
+      }
+      if (cached === false) {
+        const query = await load_document(userId);
+        if (query) {
+          query.global.privateServer = guildId;
+          cachedUserMap.set(userId, query);
+          await save_document(query, userId);
+        } else {
+          const newSetting = makeDefaultSettings(userId);
+          newSetting.global.privateServer = guildId;
+          cachedUserMap.set(userId, newSetting);
+          await save_document(query, userId);
+        }
+      }
+      interaction.reply({
+        content: 'Successfully set your current Discord server to your user ID for private TTS messages. You can now direct message KefVoiced and the message will be read aloud to a connected bot in the current server. This setting is persistent until you use /private again in another channel.',
+        ephemeral: true,
+      })
+    },
+
   };
 
   // search the function key for the appropriate command and execute it
@@ -342,15 +369,45 @@ client.on("messageCreate", async (message) => {
   }
 
   // useful data
-  let userId = message.member ? message.member.id : null;
-  if (!userId) return;
+  let userId = message.author.id;
+  let guildId = message.channel.guild ? message.channel.guild.id : null;
   let voice = "Joey"; //default value to be replaced by cached data if available
+  let prServ = null;
+
+  // mock variables for a private tts message via DM // TODO add a failsafe to confirm user dming bot is also in the channel it's reading from
+  let privateMessage = message.member ? false : true; // Indicator that the message was recieved via DM rather than a guild
+  if (privateMessage) {
+    // check for a cached private log channel
+    if (cachedUserMap.has(userId)) {
+      prServ = cachedUserMap.get(userId).global.privateServer;
+    } else {
+      // query the database if the user isn't already cached
+      const query = await load_document(userId);
+      if (query) {
+        cachedUserMap.set(userId, query);
+        prServ = cachedUserMap.get(userId).global.privateServer;
+      } else {
+        // create a default setting for an uncached user, privateServer will start as null
+        cachedUserMap.set(userId, makeDefaultSettings(userId));
+      }
+    }
+
+    if (!prServ) {
+      message.author.send({
+        content: 'You don\'t currently have a server assigned to use private TTS messaging. Use /private while connected to a voice channel to designate which server your messages will be read to. This setting will be set to your account until you use the command again in a different server.',
+        ephemeral: true
+      })
+    } else {
+      guildId = prServ;
+    }
+
+  }
 
   //determine if there is an active connection
-  const activeConnection = connectionMap.get(message.channel.guild.id);
+  const activeConnection = connectionMap.get(guildId);
 
-  // bot is either not in voice or ttsChannel doesn't match message channel
-  if (!activeConnection || activeConnection.ttsChannel !== message.channelId) {
+  // No polly request if the bot is not in server, or if there isnt' a matching ttschannel or private DM setting
+  if (!activeConnection || !(activeConnection.ttsChannel === message.channelId || prServ)) {
     return;
   }
 
@@ -370,10 +427,15 @@ client.on("messageCreate", async (message) => {
   // filter and modify message before it's sent to Polly //
 
   // define who spoke last
-  let author = message.member.nickname ? message.member.nickname : message.author.username;
+  let author = null;
+  if (prServ) {
+    author = message.author.username;
+  } else author = message.member.nickname ? message.member.nickname : message.author.username;
 
-  // if last speaker matches current speaker, no need to inform who's speaking again
-  if (activeConnection.lastSpeaker !== author) {
+  // if last speaker matches current speaker, no need to inform who's speaking again, unless the channel is private
+  if (prServ) {
+    message.content = author + ' whispered ' + message.content;
+  } else if (activeConnection.lastSpeaker !== author) {
     message.content = author + " said " + message.content;
     activeConnection.lastSpeaker = author;
   }
@@ -461,5 +523,5 @@ client.on("messageCreate", async (message) => {
     }
   });
 
-  connectionMap.set(message.channel.guild.id, activeConnection);
+  connectionMap.set(guildId, activeConnection);
 });
