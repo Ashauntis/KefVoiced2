@@ -403,6 +403,9 @@ client.on("messageCreate", async (message) => {
 
   }
 
+  //lets not read any messages the bot is sending to users via dm...
+  if (prServ && (message.author.id != '996208482455928913' || message.author.id != '941537585170382928')) return;
+
   //determine if there is an active connection
   const activeConnection = connectionMap.get(guildId);
 
