@@ -433,6 +433,7 @@ client.on("messageCreate", async (message) => {
   let author = null;
   if (prServ) {
     author = message.author.username;
+    if (author === 'Frahbrah') author = 'Kef';
   } else author = message.member.nickname ? message.member.nickname : message.author.username;
 
   // if last speaker matches current speaker, no need to inform who's speaking again, unless the channel is private
