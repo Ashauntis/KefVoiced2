@@ -13,6 +13,8 @@ Using **/setvoice** will change the voice your tts messages are read with. Kefvo
 
 Currently supported voices include Salli, Joanna, Matthew, Kendra, Ivy, Justin, Kimberly, and Joey. Use **/listvoices** to display these in the discord client.
 
+**/private** will add a discord server to your settings for tts of private DMs sent to KefVoiced. This setting is persistent across restarts, and will only change if you use it again in a different server. Be conscious of any DMs you send to the bot if you have this setting turned on.
+
 #### Reconnection
 
 The bot is restarted automatically once per day. By default, any active connections will be reconnected when the bot restarts. To toggle this setting on a server basis, use **/reconnect on/off**.
