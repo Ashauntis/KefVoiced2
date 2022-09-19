@@ -29,6 +29,7 @@ class VoiceConnection {
     this.queue = [];
     this.playing = false;
     this.lastSpeaker = null;
+    this.whisper = false;
 
     this.player.on((AudioPlayerStatus.Idle || AudioPlayerStatus.Paused), () => {
       try {
