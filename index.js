@@ -439,6 +439,7 @@ client.on("messageCreate", async (message) => {
   // if last speaker matches current speaker, no need to inform who's speaking again, unless the channel is private
   if (prServ && (activeConnection.lastSpeaker !== author || !activeConnection.whisper)) {
     message.content = author + ' whispered ' + message.content;
+    activeConnection.lastSpeaker = author;
   } else if (activeConnection.lastSpeaker !== author || ( activeConnection.whisper && !prServ)) {
     message.content = author + " said " + message.content;
     activeConnection.lastSpeaker = author;
@@ -446,7 +447,10 @@ client.on("messageCreate", async (message) => {
 
   if (prServ) {
     activeConnection.whisper = true;
-  } else activeConnection.whisper = false;
+  } else {
+    activeConnection.whisper = false;
+  }
+
 
   // filter message for links // TODO regex the link so any additional text is still read by polly
   if (message.content.search("http") != -1) {
