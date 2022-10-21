@@ -21,8 +21,6 @@ const {
 } = require("@discordjs/voice");
 const {
   SlashCommandRoleOption,
-  EmbedAssertions,
-  underscore,
 } = require("@discordjs/builders");
 
 // Load any additional JS files
@@ -38,7 +36,6 @@ const {
   makeDefaultSettings,
   queueSoundboard,
   switchFn,
-
 } = require("./utility.js");
 const soundboard = require("./soundboard.js");
 
@@ -245,6 +242,7 @@ client.on("interactionCreate", async (interaction) => {
     },
 
     soundboard: async () => {
+      console.log('Soundboard command fired');
       if (!activeConnection) {
         interaction.reply({
           content: "Connect the bot to voice and try again!",
@@ -285,12 +283,15 @@ client.on("interactionCreate", async (interaction) => {
           inline: true,
         });
 
-      interaction.reply({
-        content: "Sending you the soundboard via Direct Message",
-        ephemeral: true,
-      });
-
-      await interaction.user.send({ embeds: [sb] });
+      await interaction.user.send({ embeds: [sb] }).then(() => interaction.reply({
+        content: 'Sending you the soundboard via Direct Message',
+        ephemeral: true
+        })
+        ).catch(() => interaction.reply({
+        content: 'Something went wrong :(',
+        ephemeral: true
+        })
+        )
 
       for (let key in sbKey) {
         if (sbReactCounter == 0) {
@@ -307,9 +308,6 @@ client.on("interactionCreate", async (interaction) => {
             "collect",
             (reaction, user) => {
               queueSoundboard(reaction, interaction, guildId);
-              ({
-                content: `${interaction.member.nickname} played a sound: ${reaction}`,
-              });
             }
           );
         }
@@ -356,6 +354,7 @@ client.on("interactionCreate", async (interaction) => {
 
   // search the function key for the appropriate command and execute it
   const runInteraction = async (interaction) => {
+    console.log(`Interaction fired: ${interaction}` );
     switchFn(slashCommands, interaction.commandName)();
   };
 
@@ -393,10 +392,10 @@ client.on("messageCreate", async (message) => {
     }
 
     if (!prServ) {
-      message.author.send({
-        content: 'You don\'t currently have a server assigned to use private TTS messaging. Use /private while connected to a voice channel to designate which server your messages will be read to. This setting will be set to your account until you use the command again in a different server.',
-        ephemeral: true
-      })
+      // message.author.send({
+      //   content: 'You don\'t currently have a server assigned to use private TTS messaging. Use /private while connected to a voice channel to designate which server your messages will be read to. This setting will be set to your account until you use the command again in a different server.',
+      //   ephemeral: true
+      // })
     } else {
       guildId = prServ;
     }
@@ -439,11 +438,11 @@ client.on("messageCreate", async (message) => {
   // if last speaker matches current speaker, no need to inform who's speaking again, unless the channel is private
   if (prServ && (activeConnection.lastSpeaker !== author || !activeConnection.whisper)) {
     message.content = author + ' whispered ' + message.content;
-    activeConnection.lastSpeaker = author;
   } else if (activeConnection.lastSpeaker !== author || ( activeConnection.whisper && !prServ)) {
     message.content = author + " said " + message.content;
-    activeConnection.lastSpeaker = author;
   }
+
+  activeConnection.lastSpeaker = author;
 
   if (prServ) {
     activeConnection.whisper = true;
@@ -501,7 +500,7 @@ client.on("messageCreate", async (message) => {
   // filter for messages that only contain an image
   if (
     message.content === "" &&
-    message.attachments.first().contentType.includes("image/")
+    message.attachments.first()?.contentType.includes("image/")
   ) {
     message.content = author + " sent an image.";
   }

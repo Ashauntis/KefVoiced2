@@ -147,7 +147,10 @@ async function save_document(data_object, id) {
 const switchFn =
   (lookupObject, defaultCase = '_default') =>
   (expression) =>
+  {
+    console.log('in switch expression');
     (lookupObject[expression] || lookupObject[defaultCase])();
+  }
 
 async function joinVoice(connection, channel, ttsChannel ) {
 
