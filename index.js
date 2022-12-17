@@ -362,7 +362,6 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 client.on("messageCreate", async (message) => {
-  console.log(message.mentions.roles[0]);
   // Check to see if a message was ephemeral - skip if true
   if (message.flags.has("EPHEMERAL")) {
     return;
