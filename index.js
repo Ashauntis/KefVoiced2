@@ -362,6 +362,7 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 client.on("messageCreate", async (message) => {
+  console.log(message.mentions.roles[0]);
   // Check to see if a message was ephemeral - skip if true
   if (message.flags.has("EPHEMERAL")) {
     return;
@@ -464,6 +465,13 @@ client.on("messageCreate", async (message) => {
     message.content = message.content.replaceAll(needle, replace);
     message.content = message.content.replaceAll(needle_alt, replace);
   });
+
+  // filter role tags to read role name instead of ID
+  message.mentions.roles.forEach((value, key) => {
+    const needle = `<@&${key}>`
+    const replace = ` at ${value.name}`
+    message.content = message.content.replaceAll(needle, replace);
+  })
 
   //TODO filter channel names to read the actual channel name rather than ID
 
