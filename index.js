@@ -28,6 +28,7 @@ const {
   reconnectionList,
   connectionMap,
   polly,
+  openai,
   reconnectVoice,
   playQueue,
   joinVoice,
@@ -63,7 +64,9 @@ const client = new Client({
 
 let cachedUserMap = new Map();
 const sbKey = soundboard.soundboardOptions;
-
+let aiConversation = [
+  {"role": "system", "content": "You are a helpful assistant."},
+  ];
 
 client.once("ready", () => {
 
@@ -171,44 +174,68 @@ client.on("interactionCreate", async (interaction) => {
       );
     },
 
-    setvoice: () => {
+    setvoice: async () => {
       let choice = interaction.options.getString('input').capitalize();
 
-      polly.describeVoices( { LanguageCode: 'en-US'}, async function (err, data) {
-        if (err) {
-          console.log(err, err.stack);
-        } else {
-          let validChoice =  data.Voices.find(voice => voice.Name === choice);
-          if (choice === 'Kevin') validChoice = false;
-
-          if (validChoice) {
-            let query = await load_document(userId);
-
-            if (query) {
-              query.global.voice = choice;
-              cachedUserMap.set(userId, query);
-              save_document(query, userId);
-            } else {
-              let newSetting = makeDefaultSettings(userId);
-              newSetting.global.voice = choice;
-              cachedUserMap.set(userId, newSetting);
-              save_document(newSetting, userId);
-            }
-            interaction.reply({
-              content: `Setting your voice to ${choice}`,
-              ephemeral: true
-            })
-
-          } else interaction.reply({
-            content: `${choice} is not a supported voice. Use /listvoices to see a full list of supported voices.`,
-            ephemeral: true
-          })
-        }
+      //add the prompt from the slash command to the conversation record
+      aiConversation.push({"role": "user", "content": choice});
+      interaction.reply({
+        content: `${interaction.user} said to ChatGPT: ${choice} .`,
+        ephemeral: false,
       })
+
+      // temporary home for our openAI testing
+      const response = await openai.createChatCompletion({
+        model: "gpt-3.5-turbo",
+        messages: aiConversation,
+        // temperature: 0,
+        // max_tokens: 7,
+      });
+
+      //add chatgpts response to the conversation record
+      aiConversation.push({"role": "assistant", "content": response.data.choices[0].message.content})
+
+      interaction.followUp({
+        content: `ChatGPT responded with ${response.data.choices[0].message.content}`,
+        ephemeral: false,
+      })
+
+      // polly.describeVoices( { LanguageCode: 'en-US'}, async function (err, data) {
+      //   if (err) {
+      //     console.log(err, err.stack);
+      //   } else {
+      //     let validChoice =  data.Voices.find(voice => voice.Name === choice);
+      //     if (choice === 'Kevin') validChoice = false;
+
+      //     if (validChoice) {
+      //       let query = await load_document(userId);
+
+      //       if (query) {
+      //         query.global.voice = choice;
+      //         cachedUserMap.set(userId, query);
+      //         save_document(query, userId);
+      //       } else {
+      //         let newSetting = makeDefaultSettings(userId);
+      //         newSetting.global.voice = choice;
+      //         cachedUserMap.set(userId, newSetting);
+      //         save_document(newSetting, userId);
+      //       }
+      //       interaction.reply({
+      //         content: `Setting your voice to ${choice}`,
+      //         ephemeral: true
+      //       })
+
+      //     } else interaction.reply({
+      //       content: `${choice} is not a supported voice. Use /listvoices to see a full list of supported voices.`,
+      //       ephemeral: true
+      //     })
+      //   }
+      // })
     },
 
     skip: () => {
       try {
+        console.log(`Skipping current audio file on guild ${guildId}`);
         activeConnection.playing = false;
 
         // remove the current audio file from the queue
@@ -362,6 +389,7 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 client.on("messageCreate", async (message) => {
+  console.log('Message create fired');
   // Check to see if a message was ephemeral - skip if true
   if (message.flags.has("EPHEMERAL")) {
     return;
@@ -520,10 +548,12 @@ client.on("messageCreate", async (message) => {
     SampleRate: "24000",
   };
 
+  console.log(`Attempting to send API request to Amazon Polly`);
   polly.synthesizeSpeech(params, function (err, data) {
     if (err) {
       console.log(err);
     } else {
+      console.log(`File recieved, adding to queue`);
       const fileLoc = "audio/" + message.id + ".ogg";
       fs.writeFile(fileLoc, data.AudioStream, (err) => {
         if (err) {

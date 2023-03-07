@@ -1,28 +1,41 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
-const { REST } = require('@discordjs/rest');
-const { Routes } = require('discord-api-types/v9');
+const { REST, Routes } = require('discord.js');
+// const { clientId, guildId, token } = require('./config.json');
 require('dotenv').config();
 const clientId = process.env.clientId;
 const guildId = process.env.guildId;
 const token = process.env.token;
 
-const commands = [
-	new SlashCommandBuilder().setName('join').setDescription('Join\'s your current voice channel.'),
-	new SlashCommandBuilder().setName('leave').setDescription('Leaves voice chat'),
-	new SlashCommandBuilder().setName('private').setDescription('Allows DMs sent directly to KefVoiced to be read aloud in this channel'),
-	new SlashCommandBuilder().setName('skip').setDescription('Skip the current audio clip being read'),
-	new SlashCommandBuilder().setName('help').setDescription('Need some help?'),
-	new SlashCommandBuilder().setName('setlog').setDescription('Designate a channel for logs from KefVoiced.'),
-	new SlashCommandBuilder().setName('listvoices').setDescription('Lists the voices available for use'),
-	new SlashCommandBuilder().setName('setvoice').setDescription('Set your personal voice option. Eg: /setvoice Salli').addStringOption(option => option.setName('input')
-	.setDescription('What voice would you like to use?')
-	.setRequired(true)),
-	new SlashCommandBuilder().setName('soundboard').setDescription('Send a list of prerecorded sounds to your DMs'),
-]
-	.map(command => command.toJSON());
+const fs = require('node:fs');
+const path = require('node:path');
 
-const rest = new REST({ version: '9' }).setToken(token);
+const commands = [];
+// Grab all the command files from the commands directory you created earlier
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
-rest.put(Routes.applicationCommands(clientId), { body: commands })
-	.then(() => console.log('Successfully registered application commands.'))
-	.catch(console.error);
+// Grab the SlashCommandBuilder#toJSON() output of each command's data for deployment
+for (const file of commandFiles) {
+	const command = require(`./commands/${file}`);
+	commands.push(command.data.toJSON());
+}
+
+// Construct and prepare an instance of the REST module
+const rest = new REST({ version: '10' }).setToken(token);
+
+// and deploy your commands!
+(async () => {
+	try {
+		console.log(`Started refreshing ${commands.length} application (/) commands.`);
+
+		// The put method is used to fully refresh all commands in the guild with the current set
+		const data = await rest.put(
+			Routes.applicationGuildCommands(clientId, guildId),
+			{ body: commands },
+		);
+
+		console.log(`Successfully reloaded ${data.length} application (/) commands.`);
+	} catch (error) {
+		// And of course, make sure you catch and log any errors!
+		console.error(error);
+	}
+})();

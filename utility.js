@@ -1,6 +1,21 @@
 const soundboard = require('./soundboard.js');
 const sbKey = soundboard.soundboardOptions;
 
+const {Configuration, OpenAIApi } = require("openai");
+const configuration = new Configuration({
+  // organization: "Personal",
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+const openai = new OpenAIApi(configuration);
+
+// let openAIconfig = {
+//   method: "POST", 
+//   "model": "gpt-3.5-turbo",
+//   "prompt": null,
+
+// }
+
 const {
   AudioPlayer,
   AudioPlayerStatus,
@@ -33,6 +48,7 @@ class VoiceConnection {
 
     this.player.on((AudioPlayerStatus.Idle || AudioPlayerStatus.Paused), () => {
       try {
+        console.log(`Playback ended on guild ${this.connection.guildId}`)
         this.playing = false;
         if (this.queue.length != 0) {
           if (this.queue[0].soundboard === false) {
@@ -164,6 +180,14 @@ async function joinVoice(connection, channel, ttsChannel ) {
     adapterCreator: channel.guild.voiceAdapterCreator,
   });
 
+  newConnection.connection.on('stateChange', (old_state, new_state) => {
+    console.log('Connection state change from', old_state.status, 'to', new_state.status);
+    if (old_state.status === VoiceConnectionStatus.Ready && new_state.status === VoiceConnectionStatus.Connecting) {
+      console.log("Bug Fix Executing");
+      newConnection.connection.configureNetworking();
+    }
+  })
+
   newConnection.connection.subscribe(newConnection.player);
 
   newConnection.channelId = connection.id;
@@ -203,6 +227,7 @@ function playQueue() {
     if (connection.queue.length != 0 && !connection.playing) {
       // if the player is not playing, play the next audiofile
       try {
+        console.log(`Attempting to play an Audio File from the queue for guild ${connection.guildId}`)
         // check if audio file exists
         if (fs.existsSync(connection.queue[0].path)) {
           connection.playing = true;
@@ -264,4 +289,5 @@ module.exports = {
     connectionMap,
     reconnectionList,
     polly,
+    openai,
 };
