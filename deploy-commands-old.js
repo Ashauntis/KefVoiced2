@@ -1,6 +1,4 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
-const { REST } = require('@discordjs/rest');
-const { Routes } = require('discord-api-types/v9');
+const { TODO } = require("discord.js");
 require('dotenv').config();
 const clientId = process.env.clientId;
 const guildId = process.env.guildId;
@@ -18,7 +16,7 @@ const commands = [
 	.setDescription('What voice would you like to use?')
 	.setRequired(true)),
 	new SlashCommandBuilder().setName('soundboard').setDescription('Send a list of prerecorded sounds to your DMs'),
-	new SlashCommandBuilder().setName('ask').setDescription('Ask ChatGPT a question')]
+	new SlashCommandBuilder().setName('chat').setDescription('Ask ChatGPT a question')]
 	.map(command => command.toJSON());
 
 const rest = new REST({ version: '9' }).setToken(token);

@@ -171,8 +171,6 @@ const switchFn =
 async function joinVoice(connection, channel, ttsChannel ) {
 
   const newConnection = new VoiceConnection();
-  // activeConnections.push(new VoiceConnection());
-  // const i = activeConnections.length - 1;
 
   newConnection.connection = await joinVoiceChannel({
     channelId: connection.id,
@@ -180,13 +178,13 @@ async function joinVoice(connection, channel, ttsChannel ) {
     adapterCreator: channel.guild.voiceAdapterCreator,
   });
 
-  newConnection.connection.on('stateChange', (old_state, new_state) => {
-    console.log('Connection state change from', old_state.status, 'to', new_state.status);
-    if (old_state.status === VoiceConnectionStatus.Ready && new_state.status === VoiceConnectionStatus.Connecting) {
-      console.log("Bug Fix Executing");
-      newConnection.connection.configureNetworking();
-    }
-  })
+  // newConnection.connection.on('stateChange', (old_state, new_state) => {
+  //   console.log('Connection state change from', old_state.status, 'to', new_state.status);
+  //   if (old_state.status === VoiceConnectionStatus.Ready && new_state.status === VoiceConnectionStatus.Connecting) {
+  //     console.log("Bug Fix Executing");
+  //     newConnection.connection.configureNetworking();
+  //   }
+  // })
 
   newConnection.connection.subscribe(newConnection.player);
 
