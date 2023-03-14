@@ -1,21 +1,6 @@
 const soundboard = require('./soundboard.js');
 const sbKey = soundboard.soundboardOptions;
 
-const {Configuration, OpenAIApi } = require("openai");
-const configuration = new Configuration({
-  // organization: "Personal",
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const openai = new OpenAIApi(configuration);
-
-// let openAIconfig = {
-//   method: "POST", 
-//   "model": "gpt-3.5-turbo",
-//   "prompt": null,
-
-// }
-
 const {
   AudioPlayer,
   AudioPlayerStatus,
@@ -35,6 +20,7 @@ const { join } = require("path");
 // data tracking
 let reconnectionList = [];
 let connectionMap = new Map();
+let cachedUserMap = new Map();
 // Define our connection class
 
 class VoiceConnection {
@@ -285,7 +271,7 @@ module.exports = {
     playQueue,
     queueSoundboard,
     connectionMap,
+    cachedUserMap,
     reconnectionList,
     polly,
-    openai,
 };

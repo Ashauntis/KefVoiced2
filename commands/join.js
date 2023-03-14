@@ -6,12 +6,9 @@ module.exports = {
     .setName("join")
     .setDescription("Join's your current voice channel."),
   async execute(interaction) {
-    
-    // useful data renames
-    const userId = interaction.member.id;
-    const guildId = interaction.member.guild.id;
 
-    // determine if/where a matching active connection is stored
+
+    // determine if/where a matching active connection is stored, and destroy it before creating a new one.
     let activeConnection = connectionMap.get(interaction.guildId);
 
     if (activeConnection) {
@@ -25,8 +22,15 @@ module.exports = {
         }
       }
     }
-
+    
     const voiceChannel = interaction.member?.voice.channel;
+    if (!voiceChannel) {
+      interaction.reply({
+        content: 'Please join a voice channel and try again.',
+        ephemeral: true,
+      })
+      return;
+    }
     joinVoice(voiceChannel, voiceChannel, interaction.channelId);
 
     reconnectionList.push({
