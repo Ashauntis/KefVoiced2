@@ -11,6 +11,9 @@ const commands = [];
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
+// An array to make it easy to delete more than one command at once.
+const deletionList = [];
+
 // Grab the SlashCommandBuilder#toJSON() output of each command's data for deployment
 for (const file of commandFiles) {
 	console.log(file);
@@ -36,6 +39,11 @@ console.log(rest);
 		);
 
 		console.log(`Successfully reloaded ${data.length} application (/) commands.`);
+
+		console.log(`Starting deletion of the ${deletionList} commands in the deletion list`)
+
+		deletionList.forEach((commandId) => rest.delete(Routes.applicationCommand(clientId, commandId)))
+		
 	} catch (error) {
 		// And of course, make sure you catch and log any errors!
 		console.error(error);

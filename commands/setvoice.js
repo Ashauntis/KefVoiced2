@@ -1,4 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
+const { load_document, save_document, makeDefaultSettings, cachedUserMap } = require('../utility.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -22,7 +23,24 @@ module.exports = {
 			)
         ),
     async execute(interaction) {
-        interaction.reply({content: 'Reminder that this isn\'t done yet!', ephemeral: true});
-        return;
+        const userId = interaction.user.id;
+        const voice = interaction.options.getString('names');
+
+        let query = await load_document(userId);
+
+        if (query) {
+            query.global.voice = voice;
+            cachedUserMap.set(userId, query);
+            save_document(query, userId);
+        } else {
+            let newSetting = makeDefaultSettings(userId);
+            newSetting.global.voice = voice;
+            cachedUserMap.set(userId, newSetting);
+            save_document(newSetting, userId);
+        }
+        interaction.reply({
+            content: `Setting your voice to ${voice}`,
+            ephemeral: true
+        })
     }
 };

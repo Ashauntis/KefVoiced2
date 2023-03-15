@@ -9,7 +9,6 @@ module.exports = {
       console.log(interaction);
       let userId = interaction.user.id;
       let guildId = interaction.guildId;
-      console.log(userId, guildId);
       
       let cached = false;
       // query the cache to get their full setting structure

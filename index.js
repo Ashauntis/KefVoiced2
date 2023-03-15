@@ -275,6 +275,7 @@ client.on("messageCreate", async (message) => {
   // send the message to the Polly API
   const params = {
     OutputFormat: "ogg_vorbis",
+    Engine: 'neural',
     Text: message.content,
     VoiceId: voice,
     SampleRate: "24000",
