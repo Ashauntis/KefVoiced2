@@ -1,21 +1,6 @@
 const soundboard = require('./soundboard.js');
 const sbKey = soundboard.soundboardOptions;
 
-const {Configuration, OpenAIApi } = require("openai");
-const configuration = new Configuration({
-  // organization: "Personal",
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const openai = new OpenAIApi(configuration);
-
-// let openAIconfig = {
-//   method: "POST", 
-//   "model": "gpt-3.5-turbo",
-//   "prompt": null,
-
-// }
-
 const {
   AudioPlayer,
   AudioPlayerStatus,
@@ -35,6 +20,7 @@ const { join } = require("path");
 // data tracking
 let reconnectionList = [];
 let connectionMap = new Map();
+let cachedUserMap = new Map();
 // Define our connection class
 
 class VoiceConnection {
@@ -171,8 +157,6 @@ const switchFn =
 async function joinVoice(connection, channel, ttsChannel ) {
 
   const newConnection = new VoiceConnection();
-  // activeConnections.push(new VoiceConnection());
-  // const i = activeConnections.length - 1;
 
   newConnection.connection = await joinVoiceChannel({
     channelId: connection.id,
@@ -180,13 +164,13 @@ async function joinVoice(connection, channel, ttsChannel ) {
     adapterCreator: channel.guild.voiceAdapterCreator,
   });
 
-  newConnection.connection.on('stateChange', (old_state, new_state) => {
-    console.log('Connection state change from', old_state.status, 'to', new_state.status);
-    if (old_state.status === VoiceConnectionStatus.Ready && new_state.status === VoiceConnectionStatus.Connecting) {
-      console.log("Bug Fix Executing");
-      newConnection.connection.configureNetworking();
-    }
-  })
+  // newConnection.connection.on('stateChange', (old_state, new_state) => {
+  //   console.log('Connection state change from', old_state.status, 'to', new_state.status);
+  //   if (old_state.status === VoiceConnectionStatus.Ready && new_state.status === VoiceConnectionStatus.Connecting) {
+  //     console.log("Bug Fix Executing");
+  //     newConnection.connection.configureNetworking();
+  //   }
+  // })
 
   newConnection.connection.subscribe(newConnection.player);
 
@@ -287,7 +271,7 @@ module.exports = {
     playQueue,
     queueSoundboard,
     connectionMap,
+    cachedUserMap,
     reconnectionList,
     polly,
-    openai,
 };
