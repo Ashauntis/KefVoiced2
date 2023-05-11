@@ -19,10 +19,12 @@ const { join } = require("path");
 
 // data tracking
 let reconnectionList = [];
+// active connection map
 let connectionMap = new Map();
+// cached database settings
 let cachedUserMap = new Map();
-// Define our connection class
 
+// Define our connection class
 class VoiceConnection {
   constructor() {
     this.player = createAudioPlayer();
@@ -50,8 +52,7 @@ class VoiceConnection {
   }
 }
 
-// Utility functions
-
+// log into and establish the required services
 aws.config.getCredentials(function(err) {
   if (err) {
     console.log(err.stack);
@@ -67,6 +68,7 @@ const dynamo = new aws.DynamoDB({
 
 const polly = new aws.Polly({ apiVersion: '2016-06-10', region: 'us-east-1' });
 
+// Utility functions
 function makeEmptyCacheEntry(userID) {
   return {
       [userID]: {
@@ -146,14 +148,6 @@ async function save_document(data_object, id) {
   return r;
 }
 
-const switchFn =
-  (lookupObject, defaultCase = '_default') =>
-  (expression) =>
-  {
-    console.log('in switch expression');
-    (lookupObject[expression] || lookupObject[defaultCase])();
-  }
-
 async function joinVoice(connection, channel, ttsChannel ) {
 
   const newConnection = new VoiceConnection();
@@ -196,7 +190,7 @@ async function reconnectVoice(client) {
     if (reconnectionList.length > 0) {
       reconnectionList.forEach(async (connection) => {
         const channel = client.channels.cache.get(connection.id);
-        if (!channel) return console.error('The channel does not exist!');
+        if (!channel) return console.error('A server in the reconnection list failed to connect');
         joinVoice(connection, channel, connection.ttsChannel);
       });
     }
@@ -261,7 +255,6 @@ function queueSoundboard(reaction, interaction, guildId) {
 
 
 module.exports = {
-    switchFn,
     joinVoice,
     reconnectVoice,
     makeEmptyCacheEntry,

@@ -22,19 +22,13 @@ const {
 
 // Load any additional JS files
 const {
-  reconnectionList,
   connectionMap,
   cachedUserMap,
   polly,
-  openai,
   reconnectVoice,
   playQueue,
-  joinVoice,
-  save_document,
   load_document,
   makeDefaultSettings,
-  queueSoundboard,
-  switchFn,
 } = require("./utility.js");
 
 // Extend string class to include a capitalize method
@@ -72,7 +66,7 @@ for (const file of commandFiles) {
   const command = require(filePath);
   // set a new item in the Collection with the key as the command name and the value as the exported module
   if('data' in command && 'execute' in command) {
-    client.commands.set(command.data.name, command); 
+    client.commands.set(command.data.name, command);
   } else {
     console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
   }
@@ -80,11 +74,9 @@ for (const file of commandFiles) {
 
 client.once("ready", () => {
   console.log('Ready!');
-  // once the client has connected reconnect to the voice channels
-  // via our utility function reconnectVoice
-  // ### CURRENTLY DISABLED DUE TO DISCORD.JS BUG WORKAROUND
-  // console.log('Reconnecting to voice channels');
-  // reconnectVoice(client);
+  // once the client has connected reconnect to the most recent voice connections
+  console.log('Reconnecting to voice channels');
+  reconnectVoice(client);
 });
 
 client.login(process.env.token);
@@ -114,14 +106,14 @@ client.on("interactionCreate", async (interaction) => {
     } else {
       await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
     }
-  }  
+  }
 });
 
 // Listen for a message in a channel linked to an active voice connection
 client.on("messageCreate", async (message) => {
   console.log('Message create fired');
   // console.log(message);
-  
+
   // Check to see if a message was ephemeral - skip if true
   if (message.flags.has(MessageFlags.Ephemeral)) {
     return;
